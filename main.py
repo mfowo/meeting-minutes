@@ -8,8 +8,7 @@ Zoom / Microsoft Teams の .vtt ファイルに対応
 
 例:
     python main.py meeting.vtt
-    python main.py meeting.vtt --glossary config/glossary.csv
-    python main.py meeting.vtt --context "四半期レビュー会議" --output minutes.md
+    python main.py meeting.vtt --context "慶應馬術部 前期総会" --output minutes.md
 """
 
 import argparse
@@ -25,6 +24,7 @@ from src.glossary_loader import load_from_csv, load_from_sheets, format_for_prom
 from src.transcript_corrector import correct_transcript
 from src.minutes_generator import run_minutes_generation
 from src.glossary_suggester import suggest_and_update_glossary
+from src.cost_tracker import CostTracker
 
 
 def main():
@@ -35,12 +35,12 @@ def main():
     parser.add_argument(
         "--glossary",
         default="config/glossary.csv",
-        help="用語集CSVファイルパス (デフォルト: config/glossary.csv)",
+        help="用語集CSVファイルパス（GOOGLE_SHEET_IDが未設定の場合に使用）",
     )
     parser.add_argument(
         "--context",
         default="",
-        help="会議の背景・目的（例: '四半期売上レビュー会議'）",
+        help="会議の背景・目的（例: '慶應馬術部 2024年度前期総会'）",
     )
     parser.add_argument(
         "--output",
@@ -59,13 +59,11 @@ def main():
     )
     args = parser.parse_args()
 
-    # .envから環境変数を読み込む
     load_dotenv()
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         print("[エラー] ANTHROPIC_API_KEY が設定されていません。")
         print("  .env ファイルを作成するか、環境変数を設定してください。")
-        print("  参考: .env.example")
         sys.exit(1)
 
     vtt_path = args.vtt_file
@@ -74,6 +72,7 @@ def main():
         sys.exit(1)
 
     client = anthropic.Anthropic(api_key=api_key)
+    tracker = CostTracker()
 
     # 用語集を読み込む（GoogleスプレッドシートIDがあればSheets優先）
     sheet_id = os.getenv("GOOGLE_SHEET_ID", "").strip()
@@ -92,10 +91,10 @@ def main():
         with open(vtt_path, encoding="utf-8") as f:
             corrected = f.read()
     else:
-        corrected = correct_transcript(client, vtt_path, glossary_text)
+        corrected = correct_transcript(client, vtt_path, glossary_text, tracker)
 
     # ステップ2: 議事録生成
-    minutes = run_minutes_generation(client, corrected, args.context)
+    minutes = run_minutes_generation(client, corrected, args.context, tracker)
 
     # 出力
     output_path = args.output or f"minutes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
@@ -104,13 +103,17 @@ def main():
 
     print(f"\n✓ 議事録を保存しました: {output_path}")
 
-    # ステップ3: 用語集への追加提案
+    # ステップ3: コスト表示
+    tracker.print_summary()
+
+    # ステップ4: 用語集への追加提案
     if not args.skip_suggestion:
         suggest_and_update_glossary(
             client,
             corrected,
             glossary_entries,
             args.glossary,
+            tracker,
         )
 
 

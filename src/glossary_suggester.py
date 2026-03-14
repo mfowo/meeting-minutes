@@ -6,18 +6,19 @@
 import json
 import anthropic
 from .glossary_loader import append_to_csv, format_for_prompt
+from .cost_tracker import CostTracker
 
 
 def extract_new_terms(
     client: anthropic.Anthropic,
     transcript: str,
     existing_entries: list[dict],
+    tracker: CostTracker,
 ) -> list[dict]:
-    """文字起こしから用語集未登録の新規用語候補を抽出する"""
     existing_text = format_for_prompt(existing_entries)
 
     response = client.messages.create(
-        model="claude-opus-4-6",
+        model="claude-sonnet-4-6",
         max_tokens=2000,
         messages=[
             {
@@ -30,21 +31,21 @@ def extract_new_terms(
 ## 抽出対象
 - 人名（複数の呼称・読み方で登場しているもの）
 - 組織名・会社名
-- 技術用語・専門用語
+- 技術用語・専門用語・馬術用語
 - 社内用語・プロジェクト名
-- 頻出する固有名詞
+- 馬の名前
 
 ## 除外基準
 - 既存の用語集に登録済みのもの
-- 一般的な日本語の名詞（会議・資料・確認 など）
+- 一般的な日本語の名詞
 - 1回しか登場せず重要性が低いと判断されるもの
 
 ## 出力形式（JSON配列）
 [
   {{
     "official": "正式名称",
-    "aliases": ["別名1", "読み方1", "略称1"],
-    "category": "人名 or 組織名 or 技術用語 or 社内用語",
+    "aliases": ["別名1", "読み方1"],
+    "category": "人名_慶應 or 人名_連盟 or 馬名 or 馬術用語 or 組織名 or その他",
     "note": "役職・関係性など補足（なければ空文字）",
     "reason": "追加を提案する理由（1行）"
   }}
@@ -58,9 +59,9 @@ JSON配列のみ出力してください（説明不要）。
             }
         ],
     )
+    tracker.add(response)
 
     raw = response.content[0].text.strip()
-    # コードブロックがある場合は除去
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
@@ -74,7 +75,6 @@ JSON配列のみ出力してください（説明不要）。
 
 
 def prompt_user_selection(candidates: list[dict]) -> list[dict]:
-    """候補をターミナルに表示してユーザーに選択させる"""
     if not candidates:
         return []
 
@@ -114,10 +114,10 @@ def suggest_and_update_glossary(
     transcript: str,
     existing_entries: list[dict],
     glossary_path: str,
+    tracker: CostTracker,
 ) -> None:
-    """新規用語を抽出 → ユーザー確認 → CSV追記"""
     print("\n[用語集] 追加候補を抽出中...")
-    candidates = extract_new_terms(client, transcript, existing_entries)
+    candidates = extract_new_terms(client, transcript, existing_entries, tracker)
 
     if not candidates:
         print("[用語集] 追加候補は見つかりませんでした。")

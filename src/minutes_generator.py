@@ -5,6 +5,7 @@
 
 import anthropic
 from .transcript_corrector import chunk_text
+from .cost_tracker import CostTracker
 
 
 def summarize_chunk(
@@ -12,13 +13,13 @@ def summarize_chunk(
     chunk: str,
     chunk_num: int,
     total_chunks: int,
-    meeting_context: str = "",
+    meeting_context: str,
+    tracker: CostTracker,
 ) -> str:
-    """1チャンクから要点を抽出"""
     context_line = f"\n## 会議の背景\n{meeting_context}" if meeting_context else ""
 
     response = client.messages.create(
-        model="claude-opus-4-6",
+        model="claude-sonnet-4-6",
         max_tokens=2000,
         messages=[
             {
@@ -39,22 +40,23 @@ def summarize_chunk(
             }
         ],
     )
+    tracker.add(response)
     return response.content[0].text
 
 
 def generate_minutes(
     client: anthropic.Anthropic,
     summaries: list[str],
-    meeting_context: str = "",
+    meeting_context: str,
+    tracker: CostTracker,
 ) -> str:
-    """各チャンクの要点から最終議事録を生成"""
     combined = "\n\n---\n\n".join(
         [f"【パート{i + 1}】\n{s}" for i, s in enumerate(summaries)]
     )
     context_line = f"\n## 会議の背景\n{meeting_context}\n" if meeting_context else ""
 
     response = client.messages.create(
-        model="claude-opus-4-6",
+        model="claude-sonnet-4-6",
         max_tokens=6000,
         messages=[
             {
@@ -101,26 +103,24 @@ def generate_minutes(
             }
         ],
     )
+    tracker.add(response)
     return response.content[0].text
 
 
 def run_minutes_generation(
     client: anthropic.Anthropic,
     corrected_transcript: str,
-    meeting_context: str = "",
+    meeting_context: str,
+    tracker: CostTracker,
 ) -> str:
-    """
-    補正済み文字起こしから議事録を生成
-    長時間録音はチャンク分割して処理
-    """
     chunks = chunk_text(corrected_transcript, chunk_size=15000)
     print(f"[議事録] {len(chunks)}チャンクを処理中...")
 
     summaries = []
     for i, chunk in enumerate(chunks, 1):
         print(f"[議事録] チャンク {i}/{len(chunks)} の要点抽出中...")
-        summary = summarize_chunk(client, chunk, i, len(chunks), meeting_context)
+        summary = summarize_chunk(client, chunk, i, len(chunks), meeting_context, tracker)
         summaries.append(summary)
 
     print("[議事録] 最終議事録を生成中...")
-    return generate_minutes(client, summaries, meeting_context)
+    return generate_minutes(client, summaries, meeting_context, tracker)
