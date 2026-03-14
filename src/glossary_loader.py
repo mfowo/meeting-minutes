@@ -1,13 +1,10 @@
 """
 用語集ローダー
-Google Sheets（公開URL）またはCSVファイルから用語集を読み込む
+CSVファイルから用語集を読み込む
 """
 
 import csv
-import io
-import urllib.request
 from pathlib import Path
-
 
 def _parse_rows(reader) -> list[dict]:
     """CSV行をパースして用語エントリのリストを返す"""
@@ -28,26 +25,6 @@ def _parse_rows(reader) -> list[dict]:
             "category": category,
             "note": note,
         })
-    return entries
-
-
-def load_from_sheets(sheet_id: str) -> list[dict]:
-    """
-    公開設定のGoogleスプレッドシートから用語集を読み込む
-
-    シートは「リンクを知っている全員が閲覧可能」に設定すること
-    """
-    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-    try:
-        with urllib.request.urlopen(url, timeout=10) as response:
-            content = response.read().decode("utf-8")
-    except Exception as e:
-        print(f"[警告] Googleスプレッドシートの読み込みに失敗しました: {e}")
-        return []
-
-    reader = csv.DictReader(io.StringIO(content))
-    entries = _parse_rows(reader)
-    print(f"[用語集] {len(entries)}件読み込み（Googleスプレッドシート）")
     return entries
 
 

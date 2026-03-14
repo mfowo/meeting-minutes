@@ -12,15 +12,13 @@ Zoom / Microsoft Teams の .vtt ファイルに対応
 """
 
 import argparse
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
 
 import anthropic
-from dotenv import load_dotenv
 
-from src.glossary_loader import load_from_csv, load_from_sheets, format_for_prompt
+from src.glossary_loader import load_from_csv, format_for_prompt
 from src.transcript_corrector import correct_transcript
 from src.minutes_generator import run_minutes_generation
 from src.glossary_suggester import suggest_and_update_glossary
@@ -35,7 +33,7 @@ def main():
     parser.add_argument(
         "--glossary",
         default="config/glossary.csv",
-        help="用語集CSVファイルパス（GOOGLE_SHEET_IDが未設定の場合に使用）",
+        help="用語集CSVファイルパス",
     )
     parser.add_argument(
         "--context",
@@ -59,30 +57,16 @@ def main():
     )
     args = parser.parse_args()
 
-    load_dotenv()
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("[エラー] ANTHROPIC_API_KEY が設定されていません。")
-        print("  .env ファイルを作成するか、環境変数を設定してください。")
-        sys.exit(1)
-
     vtt_path = args.vtt_file
     if not Path(vtt_path).exists():
         print(f"[エラー] VTTファイルが見つかりません: {vtt_path}")
         sys.exit(1)
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic()
     tracker = CostTracker()
 
-    # 用語集を読み込む（GoogleスプレッドシートIDがあればSheets優先）
-    sheet_id = os.getenv("GOOGLE_SHEET_ID", "").strip()
-    if sheet_id:
-        glossary_entries = load_from_sheets(sheet_id)
-        if not glossary_entries:
-            print("[用語集] Sheetsの読み込みに失敗したためCSVにフォールバックします")
-            glossary_entries = load_from_csv(args.glossary)
-    else:
-        glossary_entries = load_from_csv(args.glossary)
+    # 用語集を読み込む
+    glossary_entries = load_from_csv(args.glossary)
     glossary_text = format_for_prompt(glossary_entries)
 
     # ステップ1: 文字起こし補正

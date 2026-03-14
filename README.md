@@ -5,7 +5,7 @@
 
 - **長時間対応**：2時間以上の会議もチャンク分割処理で後半欠落なし
 - **話者分離対応**：Zoom / Teams の話者名をそのまま活用
-- **用語集補正**：Googleスプレッドシートで管理する用語集で専門用語の誤変換を修正
+- **用語集補正**：CSVで管理する用語集で専門用語の誤変換を修正
 - **用語追加提案**：会議後に未登録用語をClaudeが自動提案・CSVに追記
 - **Markdown出力**：議題・決定事項・アクションアイテムを構造化して出力
 
@@ -19,27 +19,31 @@ pip install -r requirements.txt
 
 ### 2. APIキーの設定
 
+`ANTHROPIC_API_KEY` をシェルの環境変数に設定してください。
+
 ```bash
-cp .env.example .env
+# ~/.zshrc または ~/.zprofile に追記
+export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
-`.env` を開いて `ANTHROPIC_API_KEY` を記入してください。
+追記後に反映：
+
+```bash
+source ~/.zshrc
+```
+
 APIキーは https://console.anthropic.com/ で取得できます。
 
-### 3. Googleスプレッドシートの準備
+### 3. 用語集の準備
 
-1. `config/glossary_example.csv` の内容を参考にGoogleスプレッドシートを作成
-2. スプレッドシートの列構成：
+`config/glossary_example.csv` を参考に用語集CSVを作成してください。
+
+列構成：
 
 | 正式名称 | 別名・読み方 | カテゴリ | 備考 |
 |---------|------------|---------|------|
 | 田中健二 | たなかけんじ / 田中さん / 田中主将 | 人名_慶應 | 主将 |
 | 馬場馬術 | ばばばじゅつ / ドレッサージュ | 馬術用語 | |
-
-3. スプレッドシートを共有設定 → **「リンクを知っている全員」→ 閲覧者**
-4. URLからシートIDをコピー：
-   `https://docs.google.com/spreadsheets/d/`**`ここがシートID`**`/edit`
-5. `.env` の `GOOGLE_SHEET_ID` に貼り付け
 
 ### カテゴリの種類
 
@@ -99,7 +103,7 @@ python main.py meeting.vtt \
 ```
 .vttファイル（Zoom / Teams）
     ↓ [ステップ1] VTT解析・セグメント化
-    ↓ [ステップ2] Googleスプレッドシートから用語集読み込み
+    ↓ [ステップ2] CSVから用語集読み込み
     ↓ [ステップ3] Claudeで誤変換補正（チャンク分割処理）
     ↓ [ステップ4] Claudeで議事録生成（チャンク分割処理）
     ↓ [ステップ5] 未登録用語の追加候補を提案
