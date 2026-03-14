@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-zoom-minutes: Zoom議事録自動生成ツール
+meeting-minutes: 会議文字起こしから議事録を自動生成するツール（Zoom / Teams 対応）
 
 使い方:
     python main.py <VTTファイルパス> [オプション]
@@ -27,9 +27,9 @@ from src.minutes_generator import run_minutes_generation
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Zoom文字起こし(.vtt)から議事録を自動生成します"
+        description="会議文字起こし(.vtt)から議事録を自動生成します（Zoom / Teams 対応）"
     )
-    parser.add_argument("vtt_file", help="ZoomのVTTファイルパス")
+    parser.add_argument("vtt_file", help="VTTファイルパス（Zoom / Teams）")
     parser.add_argument(
         "--glossary",
         default="config/glossary.csv",

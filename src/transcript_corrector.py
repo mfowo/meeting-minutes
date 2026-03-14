@@ -1,6 +1,6 @@
 """
 文字起こし補正モジュール
-Zoomの.vttファイルを読み込み、用語集を使ってClaudeで補正する
+Zoom / Microsoft Teams の .vttファイルを読み込み、用語集を使ってClaudeで補正する
 """
 
 import re
@@ -111,7 +111,7 @@ def correct_chunk(
         messages=[
             {
                 "role": "user",
-                "content": f"""以下はZoom会議の文字起こし（パート{chunk_num}/{total_chunks}）です。
+                "content": f"""以下は会議の文字起こし（パート{chunk_num}/{total_chunks}）です。
 用語集を参考に誤変換を修正してください。
 
 ## 用語集
