@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-meeting-minutes: 会議文字起こしから議事録を自動生成するツール（Zoom / Teams 対応）
+meeting-minutes: 会議文字起こしから議事録を自動生成するツール
+Zoom / Microsoft Teams の .vtt ファイルに対応
 
 使い方:
     python main.py <VTTファイルパス> [オプション]
@@ -23,6 +24,7 @@ from dotenv import load_dotenv
 from src.glossary_loader import load_from_csv, format_for_prompt
 from src.transcript_corrector import correct_transcript
 from src.minutes_generator import run_minutes_generation
+from src.glossary_suggester import suggest_and_update_glossary
 
 
 def main():
@@ -50,6 +52,11 @@ def main():
         action="store_true",
         help="用語集補正をスキップして直接議事録生成（高速化）",
     )
+    parser.add_argument(
+        "--skip-suggestion",
+        action="store_true",
+        help="用語集追加提案をスキップする",
+    )
     args = parser.parse_args()
 
     # .envから環境変数を読み込む
@@ -69,8 +76,8 @@ def main():
     client = anthropic.Anthropic(api_key=api_key)
 
     # 用語集を読み込む
-    glossary = load_from_csv(args.glossary)
-    glossary_text = format_for_prompt(glossary)
+    glossary_entries = load_from_csv(args.glossary)
+    glossary_text = format_for_prompt(glossary_entries)
 
     # ステップ1: 文字起こし補正
     if args.skip_correction:
@@ -89,6 +96,15 @@ def main():
         f.write(minutes)
 
     print(f"\n✓ 議事録を保存しました: {output_path}")
+
+    # ステップ3: 用語集への追加提案
+    if not args.skip_suggestion:
+        suggest_and_update_glossary(
+            client,
+            corrected,
+            glossary_entries,
+            args.glossary,
+        )
 
 
 if __name__ == "__main__":
