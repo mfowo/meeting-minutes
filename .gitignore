@@ -1,0 +1,25 @@
+# 環境変数（APIキーを含むため絶対にコミットしない）
+.env
+
+# 会議データ（機密情報を含む可能性があるためコミットしない）
+*.vtt
+*.mp4
+*.m4a
+*.mp3
+minutes_*.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# エディタ
+.vscode/
+.idea/
