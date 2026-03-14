@@ -5,21 +5,52 @@
 
 - **長時間対応**：2時間以上の会議もチャンク分割処理で後半欠落なし
 - **話者分離対応**：Zoom / Teams の話者名をそのまま活用
-- **用語集補正**：CSVで管理する用語集を使って専門用語の誤変換を修正
+- **用語集補正**：Googleスプレッドシートで管理する用語集で専門用語の誤変換を修正
+- **用語追加提案**：会議後に未登録用語をClaudeが自動提案・CSVに追記
 - **Markdown出力**：議題・決定事項・アクションアイテムを構造化して出力
 
 ## セットアップ
 
-```bash
-# 依存パッケージのインストール
-pip install -r requirements.txt
+### 1. 依存パッケージのインストール
 
-# APIキーの設定
-cp .env.example .env
-# .env を編集して ANTHROPIC_API_KEY を設定
+```bash
+pip install -r requirements.txt
 ```
 
-Anthropic APIキーは https://console.anthropic.com/ で取得できます。
+### 2. APIキーの設定
+
+```bash
+cp .env.example .env
+```
+
+`.env` を開いて `ANTHROPIC_API_KEY` を記入してください。
+APIキーは https://console.anthropic.com/ で取得できます。
+
+### 3. Googleスプレッドシートの準備
+
+1. `config/glossary_example.csv` の内容を参考にGoogleスプレッドシートを作成
+2. スプレッドシートの列構成：
+
+| 正式名称 | 別名・読み方 | カテゴリ | 備考 |
+|---------|------------|---------|------|
+| 田中健二 | たなかけんじ / 田中さん / 田中主将 | 人名_慶應 | 主将 |
+| 馬場馬術 | ばばばじゅつ / ドレッサージュ | 馬術用語 | |
+
+3. スプレッドシートを共有設定 → **「リンクを知っている全員」→ 閲覧者**
+4. URLからシートIDをコピー：
+   `https://docs.google.com/spreadsheets/d/`**`ここがシートID`**`/edit`
+5. `.env` の `GOOGLE_SHEET_ID` に貼り付け
+
+### カテゴリの種類
+
+| カテゴリ | 内容 |
+|---------|------|
+| 人名_慶應 | 慶應義塾体育会馬術部の関係者 |
+| 人名_連盟 | 日本社会人団体馬術連盟の関係者 |
+| 用語_慶應 | 慶應馬術部固有の用語・内部呼称 |
+| 用語_連盟 | 連盟固有の用語・内部呼称 |
+| 馬術用語 | 馬術全般の共通用語 |
+| 組織名 | 団体・学校名など |
 
 ## 使い方
 
@@ -29,47 +60,27 @@ Anthropic APIキーは https://console.anthropic.com/ で取得できます。
 python main.py meeting.vtt
 ```
 
-### 用語集を指定
-
-```bash
-python main.py meeting.vtt --glossary config/glossary.csv
-```
-
 ### 会議の背景を追加（精度向上）
 
 ```bash
-python main.py meeting.vtt --context "2024年Q4売上レビュー会議"
+python main.py meeting.vtt --context "慶應馬術部 2024年度前期総会"
 ```
 
 ### 出力ファイル名を指定
 
 ```bash
-python main.py meeting.vtt --output 2024_q4_review.md
+python main.py meeting.vtt --output 2024_sokai.md
 ```
 
 ### 全オプション
 
 ```bash
 python main.py meeting.vtt \
-  --glossary config/glossary.csv \
-  --context "四半期レビュー" \
-  --output minutes.md
+  --context "社馬連 理事会" \
+  --output minutes.md \
+  --skip-suggestion   # 用語追加提案をスキップ
+  --skip-correction   # 補正スキップ（高速化）
 ```
-
-## 用語集の作り方
-
-`config/glossary.csv` を編集（またはコピーして作成）してください。
-
-```csv
-誤変換,正しい表記,カテゴリ,備考
-くーばねてぃす,Kubernetes,技術用語,
-たなかけんじ,田中健二,人名,営業部長
-プロジェクトえっくす,Project X,社内用語,
-```
-
-- **誤変換**：文字起こしで間違えやすい読み方
-- **正しい表記**：正しい表記（固有名詞・専門用語など）
-- **カテゴリ・備考**：任意（管理用）
 
 ## 文字起こしファイルの取得方法
 
@@ -77,22 +88,21 @@ python main.py meeting.vtt \
 
 1. Zoomのクラウド録画ページを開く
 2. 録画を選択 → 「音声文字起こし」をダウンロード（.vtt形式）
-3. ダウンロードした `.vtt` ファイルを本ツールに渡す
 
 ### Microsoft Teams の場合
 
 1. Teamsの会議チャットを開く
 2. 録画ファイルの「…」メニュー →「文字起こしをダウンロード」（.vtt形式）
-3. ダウンロードした `.vtt` ファイルを本ツールに渡す
 
 ## 処理の流れ
 
 ```
 .vttファイル（Zoom / Teams）
     ↓ [ステップ1] VTT解析・セグメント化
-    ↓ [ステップ2] 用語集CSVを読み込み
+    ↓ [ステップ2] Googleスプレッドシートから用語集読み込み
     ↓ [ステップ3] Claudeで誤変換補正（チャンク分割処理）
     ↓ [ステップ4] Claudeで議事録生成（チャンク分割処理）
+    ↓ [ステップ5] 未登録用語の追加候補を提案
     ↓
-議事録.md
+議事録.md ＋ 用語集更新
 ```

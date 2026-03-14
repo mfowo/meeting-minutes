@@ -21,7 +21,7 @@ from pathlib import Path
 import anthropic
 from dotenv import load_dotenv
 
-from src.glossary_loader import load_from_csv, format_for_prompt
+from src.glossary_loader import load_from_csv, load_from_sheets, format_for_prompt
 from src.transcript_corrector import correct_transcript
 from src.minutes_generator import run_minutes_generation
 from src.glossary_suggester import suggest_and_update_glossary
@@ -75,8 +75,15 @@ def main():
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    # 用語集を読み込む
-    glossary_entries = load_from_csv(args.glossary)
+    # 用語集を読み込む（GoogleスプレッドシートIDがあればSheets優先）
+    sheet_id = os.getenv("GOOGLE_SHEET_ID", "").strip()
+    if sheet_id:
+        glossary_entries = load_from_sheets(sheet_id)
+        if not glossary_entries:
+            print("[用語集] Sheetsの読み込みに失敗したためCSVにフォールバックします")
+            glossary_entries = load_from_csv(args.glossary)
+    else:
+        glossary_entries = load_from_csv(args.glossary)
     glossary_text = format_for_prompt(glossary_entries)
 
     # ステップ1: 文字起こし補正
