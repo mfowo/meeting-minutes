@@ -11,7 +11,8 @@ def _parse_rows(reader) -> list[dict]:
     entries = []
     for row in reader:
         official = row.get("正式名称", "").strip()
-        aliases_raw = row.get("別名・読み方", "").strip()
+        aliases_raw = row.get("別名・呼び方", "").strip()
+        mistrans_raw = row.get("誤変換例", "").strip()
         category = row.get("カテゴリ", "").strip()
         note = row.get("備考", "").strip()
 
@@ -19,9 +20,12 @@ def _parse_rows(reader) -> list[dict]:
             continue
 
         aliases = [a.strip() for a in aliases_raw.split("/") if a.strip()]
+        mistranscriptions = [m.strip() for m in mistrans_raw.split("/") if m.strip()]
+
         entries.append({
             "official": official,
             "aliases": aliases,
+            "mistranscriptions": mistranscriptions,
             "category": category,
             "note": note,
         })
@@ -29,7 +33,7 @@ def _parse_rows(reader) -> list[dict]:
 
 
 def load_from_csv(csv_path: str) -> list[dict]:
-    """CSVファイルから用語集を読み込む（ローカルフォールバック用）"""
+    """CSVファイルから用語集を読み込む"""
     path = Path(csv_path)
     if not path.exists():
         print(f"[警告] 用語集ファイルが見つかりません: {csv_path}")
@@ -50,14 +54,15 @@ def append_to_csv(csv_path: str, new_entries: list[dict]) -> None:
 
     with open(path, "a", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
-            f, fieldnames=["正式名称", "別名・読み方", "カテゴリ", "備考"]
+            f, fieldnames=["正式名称", "別名・呼び方", "誤変換例", "カテゴリ", "備考"]
         )
         if write_header:
             writer.writeheader()
         for entry in new_entries:
             writer.writerow({
                 "正式名称": entry.get("official", ""),
-                "別名・読み方": " / ".join(entry.get("aliases", [])),
+                "別名・呼び方": " / ".join(entry.get("aliases", [])),
+                "誤変換例": " / ".join(entry.get("mistranscriptions", [])),
                 "カテゴリ": entry.get("category", ""),
                 "備考": entry.get("note", ""),
             })
@@ -80,8 +85,17 @@ def format_for_prompt(entries: list[dict]) -> str:
     for category, items in by_category.items():
         lines.append(f"\n【{category}】")
         for e in items:
-            aliases = " / ".join(e["aliases"]) if e["aliases"] else "なし"
+            aliases = " / ".join(e["aliases"]) if e["aliases"] else ""
+            mistrans = " / ".join(e["mistranscriptions"]) if e["mistranscriptions"] else ""
             note = f"  ※{e['note']}" if e["note"] else ""
-            lines.append(f"  - {e['official']}（{aliases}）{note}")
+
+            parts = [f"  - {e['official']}"]
+            if aliases:
+                parts.append(f"    別名: {aliases}")
+            if mistrans:
+                parts.append(f"    【要修正】誤変換例: {mistrans} → 必ず「{e['official']}」に修正")
+            if note:
+                parts.append(f"    備考: {e['note']}")
+            lines.append("\n".join(parts))
 
     return "\n".join(lines)

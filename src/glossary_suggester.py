@@ -44,12 +44,16 @@ def extract_new_terms(
 [
   {{
     "official": "正式名称",
-    "aliases": ["別名1", "読み方1"],
+    "aliases": ["正しい別名1", "読み方1"],
+    "mistranscriptions": ["誤変換例1", "誤変換例2"],
     "category": "人名_慶應 or 人名_連盟 or 馬名 or 馬術用語 or 組織名 or その他",
     "note": "役職・関係性など補足（なければ空文字）",
     "reason": "追加を提案する理由（1行）"
   }}
 ]
+
+「aliases」には正しい別名・読み方・通称を、
+「mistranscriptions」には音声認識で誤変換されやすい表記（常に正式名称に修正すべきもの）を入れてください。
 
 JSON配列のみ出力してください（説明不要）。
 
@@ -84,9 +88,14 @@ def prompt_user_selection(candidates: list[dict]) -> list[dict]:
 
     for i, entry in enumerate(candidates, 1):
         aliases = " / ".join(entry.get("aliases", []))
+        mistrans = " / ".join(entry.get("mistranscriptions", []))
         note = f"  ※{entry['note']}" if entry.get("note") else ""
         reason = entry.get("reason", "")
-        print(f"  {i}. {entry['official']}（{aliases}）[{entry['category']}]{note}")
+        print(f"  {i}. {entry['official']}  [{entry['category']}]{note}")
+        if aliases:
+            print(f"     別名: {aliases}")
+        if mistrans:
+            print(f"     誤変換例: {mistrans}")
         if reason:
             print(f"     → {reason}")
 
