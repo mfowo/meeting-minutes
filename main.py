@@ -81,7 +81,7 @@ def main():
     minutes = run_minutes_generation(client, corrected, args.context, tracker)
 
     # 出力
-    output_path = args.output or f"minutes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+    output_path = args.output or f"output/minutes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(minutes)
 
